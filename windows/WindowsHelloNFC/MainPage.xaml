@@ -1,0 +1,23 @@
+﻿<Page
+    x:Class="WindowsHelloNFC.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WindowsHelloNFC"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Height="231" Width="201">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <StackPanel Margin="0,0,0,-32">
+            <ListBox x:Name="DeviceListBox" HorizontalAlignment="Left" Height="100" VerticalAlignment="Top" Width="200"/>
+
+            <Button x:Name="RegisterDevice" Content="Register Device" HorizontalAlignment="Left" VerticalAlignment="Top" Width="200" Click="RegisterDevice_Click"/>
+
+            <Button x:Name="UnregisterDevice" Content="Unregister Device" HorizontalAlignment="Left" VerticalAlignment="Top" Width="200" Click="UnregisterDevice_Click"/>
+
+            <Button x:Name="TestDevice" Content="Test Device" HorizontalAlignment="Left" VerticalAlignment="Top" Width="200" Click="TestDevice_Click"/>
+            <!--<ListBox x:Name="InfoList" HorizontalAlignment="Left" Height="329" Margin="32,295,0,0" VerticalAlignment="Top" Width="764"/>-->
+        </StackPanel>
+    </Grid>
+</Page>
