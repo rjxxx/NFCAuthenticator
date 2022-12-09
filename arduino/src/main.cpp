@@ -11,9 +11,21 @@
 #define PN532_MISO (14)
 
 Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
+uint8_t rawhidData[255];
+uint8_t selectPpse[] = {
+        0x00,
+        0xA4,
+        0x04,
+        0x00,
+        0x0E,
+        0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31,
+        0x00
+};
 
 
 void setup() {
+    RawHID.begin(rawhidData, sizeof(rawhidData));
+
     Serial.begin(115200);
     while (!Serial) {}
 
@@ -40,6 +52,20 @@ void setup() {
 
 }
 
+bool withRetry(uint8_t *send, uint8_t sendLength,
+               uint8_t *response, uint8_t *responseLength) {
+    bool success;
+    int count = 0;
+    while (count < 5) {
+        success = nfc.inDataExchange(send, sendLength, response, responseLength);
+        if (success) {
+            return true;
+        }
+        count++;
+    }
+    return false;
+}
+
 bool readCartUid(uint8_t *uid) {
     bool success;
 
@@ -52,36 +78,56 @@ bool readCartUid(uint8_t *uid) {
         return false;
     }
     Serial.println("Found something!");
-    uint8_t selectPpse[] = {
-            0x00,
-            0xA4,
-            0x04,
-            0x00,
-            0x0E,
-            0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31,
-            0x00
-    };
 
-    success = nfc.inDataExchange(selectPpse, sizeof(selectPpse), response, &responseLength);
+    success = withRetry(selectPpse, sizeof(selectPpse), response, &responseLength);
     if (!success) {
         Serial.println("2");
         return false;
     }
-    Serial.print("responseLength: ");
+    Serial.print("responseLength1: ");
     Serial.println(responseLength);
     Adafruit_PN532::PrintHexChar(response, responseLength);
-    uint8_t selectAid[] = {0x00,                                     /* CLA */
-                           0xA4,                                     /* INS */
-                           0x04,                                     /* P1  */
-                           0x00,                                     /* P2  */
-                           0x07,                                     /* Length of AID  */
-                           0xA0, 0x00, 0x00, 0x06, 0x58, 0x10, 0x10, /* AID defined on Android App */
-                           0x00 /* Le  */};
+
+    uint8_t i = 0;
+    uint8_t size = 0;
+    uint8_t *selectAid = nullptr;
+    uint8_t j = 5;
+    uint8_t k = 0;
+    while (i < sizeof(response)) {
+        if (size == 0) {
+            if (response[i] == 0x4F) {
+                size = response[i + 1];
+                selectAid = new uint8_t[6 + size];
+                selectAid[0] = 0x00;
+                selectAid[1] = 0xA4;
+                selectAid[2] = 0x04;
+                selectAid[3] = 0x00;
+                selectAid[4] = size;
+                i++;
+                continue;
+            }
+            i++;
+        } else {
+            selectAid[j++] = response[++i];
+            if (++k == size) {
+                selectAid[++j] = 0x00;
+                break;
+            }
+        }
+    }
+
+    if (selectAid == nullptr) {
+        Serial.println("nullptr");
+        return false;
+    }
+
+    Adafruit_PN532::PrintHexChar(selectAid, size + 6);
+
     uint8_t back[128];
     uint8_t length = 128;
-    success = nfc.inDataExchange(selectAid, sizeof(selectAid), back, &length);
+    success = withRetry(selectAid, size + 6, back, &length);
     if (success) {
-        Serial.print("responseLength: ");
+        Serial.print("responseLength2: ");
         Serial.println(length);
         Adafruit_PN532::PrintHexChar(back, length);
         memcpy(uid, back, sizeof(back[0]) * length);
@@ -97,8 +143,9 @@ uint8_t uid[128];
 
 void loop() {
     if (readCartUid(uid)) {
+        RawHID.write(uid, sizeof(uid));
 //        Adafruit_PN532::PrintHexChar(uid, 128);
-        delay(5000);
+//        delay(5000);
         Serial.println("Done");
     }
     delay(10);
