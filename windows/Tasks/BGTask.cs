@@ -16,6 +16,7 @@ using Windows.UI.Notifications;
 
 namespace Tasks
 {
+    [Obsolete]
     public sealed class BGTask : IBackgroundTask
     {
         ManualResetEvent opCompletedEvent = null;
@@ -27,9 +28,10 @@ namespace Tasks
         ushort usageId = 0x0C00;
         HidDevice device;
 
-        [Obsolete]
         public async void Run(IBackgroundTaskInstance taskInstance)
         {
+            ShowToastNotification("Created task");
+            var deferral = taskInstance.GetDeferral();
             // Create the selector.
             string selector =
                 HidDevice.GetDeviceSelector(usagePage, usageId, vendorId, productId);
@@ -75,7 +77,7 @@ namespace Tasks
             }
             
 
-            var deferral = taskInstance.GetDeferral();
+         
 
             // This event is signaled when the operation completes
             opCompletedEvent = new ManualResetEvent(false);
@@ -106,7 +108,6 @@ namespace Tasks
         }
 
 
-        [Obsolete]
         async void PerformAuthentication()
         {
             //ShowToastNotification("Performing Auth!");
@@ -259,7 +260,6 @@ namespace Tasks
 
         // WARNING: Test code
         // This code should be in background task
-        [Obsolete]
         async void OnStageChanged(Object sender, SecondaryAuthenticationFactorAuthenticationStageChangedEventArgs args)
         {
 
@@ -285,9 +285,11 @@ namespace Tasks
                 {
                     SecondaryAuthenticationFactorAuthentication.AuthenticationStageChanged -= OnStageChanged;
                     opCompletedEvent.Set();
-
+                    if (device != null) 
+                    { 
+                        device.Dispose(); 
+                    }
                 }
-
                 SecondaryAuthenticationFactorAuthenticationStage stage = args.StageInfo.Stage;
             }
         }

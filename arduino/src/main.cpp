@@ -27,7 +27,7 @@ void setup() {
     RawHID.begin(rawhidData, sizeof(rawhidData));
 
     Serial.begin(115200);
-    while (!Serial) {}
+//    while (!Serial) {}
 
     nfc.begin();
     uint32_t versiondata = nfc.getFirmwareVersion();
@@ -64,6 +64,26 @@ bool withRetry(uint8_t *send, uint8_t sendLength,
         count++;
     }
     return false;
+}
+
+int extract(const uint8_t *arr, const uint8_t len,
+            uint8_t *buff, const byte tag) {
+    uint8_t i = 0, j = 0;
+    uint8_t size = 0;
+    while (i < len) {
+        if (size == 0) {
+            if (arr[i] == tag) {
+                size = arr[++i];
+            }
+        } else {
+            if (j >= size) {
+                return size;
+            }
+            buff[j++] = arr[i];
+        }
+        i++;
+    }
+    return size;
 }
 
 bool readCartUid(uint8_t *uid) {
@@ -130,6 +150,8 @@ bool readCartUid(uint8_t *uid) {
         Serial.print("responseLength2: ");
         Serial.println(length);
         Adafruit_PN532::PrintHexChar(back, length);
+
+
         memcpy(uid, back, sizeof(back[0]) * length);
         return true;
     } else {
@@ -139,20 +161,25 @@ bool readCartUid(uint8_t *uid) {
     return false;
 }
 
-uint8_t uid[128];
+
+uint8_t uid[64];
+bool start = false;
 
 void loop() {
-//    auto bytesAvailable = RawHID.available();
-//    if (bytesAvailable) {
-//
-//
-//    }
+    auto bytesAvailable = RawHID.read();
+    if (bytesAvailable == 1) {
+        start = true;
+    } else if (bytesAvailable == 2) {
+        start = false;
+    }
+    if (start) {
+        if (readCartUid(uid)) {
+            RawHID.write(uid, sizeof(uid));
 
-    if (readCartUid(uid)) {
-        RawHID.write(uid, sizeof(uid));
 //        Adafruit_PN532::PrintHexChar(uid, 128);
 //        delay(5000);
-        Serial.println("Done");
+            Serial.println("Done");
+        }
     }
     delay(10);
 }

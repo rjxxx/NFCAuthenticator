@@ -28,6 +28,7 @@ namespace WindowsHelloNFC
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
+     [Obsolete]
     public sealed partial class MainPage : Page
     {
         string m_selectedDeviceId = string.Empty;
@@ -223,6 +224,7 @@ namespace WindowsHelloNFC
 
                 if (device != null)
                 {
+                    /*
                     var outputReport = device.CreateOutputReport();
 
                     byte[] dataBytes = new byte[64];
@@ -236,13 +238,17 @@ namespace WindowsHelloNFC
                     outputReport.Data = dataWriter.DetachBuffer();
 
                     uint bytesWritten = await device.SendOutputReportAsync(outputReport);
-
+                    */
 
                     // Input reports contain data from the device.
                     device.InputReportReceived += (sender1, args) =>
                     {
                         HidInputReport inputReport = args.Report;
                         IBuffer buffer = inputReport.Data;
+                        for (uint i = 0; i < buffer.Length; i++)
+                        {
+                            System.Diagnostics.Debug.Write(buffer.GetByte(i));
+                        }
 
                         System.Diagnostics.Debug.WriteLine("\nHID Input Report: " + inputReport.ToString() +
                             "\nTotal number of bytes received: " + buffer.Length.ToString());
@@ -290,27 +296,20 @@ namespace WindowsHelloNFC
                 }
             }
 
-            if (!taskRegistered)
+            if (!taskRegistered && access == BackgroundAccessStatus.AllowedSubjectToSystemPolicy)
             {
+                BackgroundTaskBuilder taskBuilder = new BackgroundTaskBuilder();
+                taskBuilder.Name = myBGTaskName;
+                // Create the trigger.
+                SecondaryAuthenticationFactorAuthenticationTrigger myTrigger = new SecondaryAuthenticationFactorAuthenticationTrigger();
 
-                if (access == BackgroundAccessStatus.AllowedSubjectToSystemPolicy)
-                {
-                    BackgroundTaskBuilder taskBuilder = new BackgroundTaskBuilder();
-                    taskBuilder.Name = myBGTaskName;
-                    // Create the trigger.
-                    SecondaryAuthenticationFactorAuthenticationTrigger myTrigger = new SecondaryAuthenticationFactorAuthenticationTrigger();
-
-                    taskBuilder.TaskEntryPoint = myBGTaskEntryPoint;
-                    taskBuilder.SetTrigger(myTrigger);
-                    BackgroundTaskRegistration taskReg = taskBuilder.Register();
-
-                    String taskRegName = taskReg.Name;
-                    //taskReg.Progress += OnBgTaskProgress;
-                    System.Diagnostics.Debug.WriteLine("Background task registration is completed.");
-                    taskRegistered = true;
-                }
+                taskBuilder.TaskEntryPoint = myBGTaskEntryPoint;
+                taskBuilder.SetTrigger(myTrigger);
+                BackgroundTaskRegistration taskReg = taskBuilder.Register();
+                //taskReg.Progress += OnBgTaskProgress;
+                System.Diagnostics.Debug.WriteLine("Background task registration is completed.");
+                taskRegistered = true;
             }
-
         }
     }
 }
