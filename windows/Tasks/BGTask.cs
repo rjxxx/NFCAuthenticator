@@ -5,10 +5,12 @@ using System.Threading;
 using Windows.ApplicationModel.Background;
 using Windows.Data.Xml.Dom;
 using Windows.Devices.Enumeration;
+using Windows.Devices.HumanInterfaceDevice;
 using Windows.Devices.SerialCommunication;
 using Windows.Security.Authentication.Identity.Provider;
 using Windows.Security.Cryptography;
 using Windows.Security.Cryptography.Core;
+using Windows.Storage;
 using Windows.Storage.Streams;
 using Windows.UI.Notifications;
 
@@ -17,14 +19,62 @@ namespace Tasks
     public sealed class BGTask : IBackgroundTask
     {
         ManualResetEvent opCompletedEvent = null;
-        SerialDevice _serialPort;
-        DataWriter _dw;
-        DataReader _dr;
 
+
+        ushort vendorId = 0x2341;
+        ushort productId = 0x8036;
+        ushort usagePage = 0xFFC0;
+        ushort usageId = 0x0C00;
+        HidDevice device;
 
         [Obsolete]
         public async void Run(IBackgroundTaskInstance taskInstance)
         {
+            // Create the selector.
+            string selector =
+                HidDevice.GetDeviceSelector(usagePage, usageId, vendorId, productId);
+
+            // Enumerate devices using the selector.
+            var devices = await DeviceInformation.FindAllAsync(selector);
+
+
+            if (devices.Any())
+            {
+                // At this point the device is available to communicate with
+                // So we can send/receive HID reports from it or 
+                // query it for control descriptions.
+                System.Diagnostics.Debug.WriteLine("HID devices found: " + devices.Count);
+                // Open the target HID device.
+
+                device =
+                    await HidDevice.FromIdAsync(devices.ElementAt(0).Id,
+                    FileAccessMode.ReadWrite);
+
+                if (device != null)
+                {
+                    System.Diagnostics.Debug.WriteLine("HID devices open");
+                    device.InputReportReceived += (sender1, args1) =>
+                    {
+                        HidInputReport inputReport = args1.Report;
+                        IBuffer buffer = inputReport.Data;
+
+                        System.Diagnostics.Debug.WriteLine("\nHID Input Report: " + inputReport.ToString() +
+                            "\nTotal number of bytes received: " + buffer.Length.ToString());
+
+                        //if (Search(buffer, expected) != -1)
+                        // {
+                        PerformAuthentication();
+
+                        // }
+                    };
+                } else
+                {
+                    System.Diagnostics.Debug.WriteLine("HID devices not open");
+                }
+
+            }
+            
+
             var deferral = taskInstance.GetDeferral();
 
             // This event is signaled when the operation completes
@@ -228,54 +278,6 @@ namespace Tasks
             {
                 //ShowToastNotification("Stage = CollectingCredential");
 
-                var aqs = SerialDevice.GetDeviceSelector("COM4");
-
-                var devices = await DeviceInformation.FindAllAsync(aqs, null);
-
-                if (!devices.Any())
-                {
-                    ShowToastNotification("No device found");
-                    return;
-                }
-
-                _serialPort = await SerialDevice.FromIdAsync(devices[0].Id);
-                if (_serialPort == null)
-                {
-                    ShowToastNotification("Device not available");
-                    return;
-                }
-                _serialPort.WriteTimeout = TimeSpan.FromMilliseconds(1000);
-                _serialPort.ReadTimeout = TimeSpan.FromMilliseconds(1000);
-                _serialPort.BaudRate = 115200;
-                _serialPort.Parity = SerialParity.None;
-                _serialPort.StopBits = SerialStopBitCount.One;
-                _serialPort.DataBits = 8;
-                _serialPort.Handshake = SerialHandshake.None;
-                _dw = new DataWriter(_serialPort.OutputStream);
-                _dr = new DataReader(_serialPort.InputStream);
-
-
-                byte[] writeByte = { 0x00, 0x00, 0xff, 0x04, 0xfc, 0xd4, 0x4a, 0x02, 0x00, 0xe0, 0x00 };
-                const uint maxReadLength = 512;
-                byte[] expected = { 244, 213, 75, 1, 1, 0, 4, 8, 4, 35, 172, 84, 167 };
-                while (true)
-                {
-                    _dw.WriteBytes(writeByte);
-                    await _dw.StoreAsync();
-
-
-                    uint bytesToRead = await _dr.LoadAsync(maxReadLength);
-                    byte[] rxBuffer = new byte[bytesToRead];
-                    _dr.ReadBytes(rxBuffer);
-
-
-                    if (Search(rxBuffer, expected) != -1)
-                    {
-                        PerformAuthentication();
-                        return;
-                    }
-                    Thread.Sleep(300);
-                }
             }
             else
             {
@@ -283,11 +285,7 @@ namespace Tasks
                 {
                     SecondaryAuthenticationFactorAuthentication.AuthenticationStageChanged -= OnStageChanged;
                     opCompletedEvent.Set();
-                    if (_serialPort != null)
-                    {
-                        _serialPort.Dispose();
-                        _serialPort = null;
-                    }
+
                 }
 
                 SecondaryAuthenticationFactorAuthenticationStage stage = args.StageInfo.Stage;

@@ -195,7 +195,6 @@ namespace WindowsHelloNFC
 
         async void TestDevice_Click(object sender, RoutedEventArgs e)
         {
-            // Microsoft Input Configuration Device.
             ushort vendorId = 0x2341;
             ushort productId = 0x8036;
             ushort usagePage = 0xFFC0;
@@ -219,6 +218,8 @@ namespace WindowsHelloNFC
                 HidDevice device =
                     await HidDevice.FromIdAsync(devices.ElementAt(0).Id,
                     FileAccessMode.ReadWrite);
+                
+  
 
                 if (device != null)
                 {

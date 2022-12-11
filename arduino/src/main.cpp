@@ -142,6 +142,12 @@ bool readCartUid(uint8_t *uid) {
 uint8_t uid[128];
 
 void loop() {
+//    auto bytesAvailable = RawHID.available();
+//    if (bytesAvailable) {
+//
+//
+//    }
+
     if (readCartUid(uid)) {
         RawHID.write(uid, sizeof(uid));
 //        Adafruit_PN532::PrintHexChar(uid, 128);
